@@ -20,7 +20,7 @@ namespace TrafficSimulation{
             VehicleAI veAi = EditorHelper.AddComponent<VehicleAI>(selected);
             WheelDrive wheelDrive = EditorHelper.AddComponent<WheelDrive>(selected);
 
-            TrafficSystem ts = GameObject.FindObjectOfType<TrafficSystem>();
+            TrafficSystem ts = GameObject.FindFirstObjectByType<TrafficSystem>();
 
             //Configure the vehicle AI script with created objects
             anchor.transform.localPosition = Vector3.zero;

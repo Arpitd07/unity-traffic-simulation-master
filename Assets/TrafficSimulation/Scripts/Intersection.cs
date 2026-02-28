@@ -1,6 +1,7 @@
-// Traffic Simulation
+﻿// Traffic Simulation
 // https://github.com/mchrbn/unity-traffic-simulation
 
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -23,27 +24,100 @@ namespace TrafficSimulation{
         public float orangeLightDuration = 2;
         public List<Segment> lightsNbr1;
         public List<Segment> lightsNbr2;
+        public float minGreenTime = 5f;
+        public float maxGreenTime = 25f;
+        public float timePerVehicle = 1f;
+        public List<LaneSensor> group1Sensors = new List<LaneSensor>();
+        public List<LaneSensor> group2Sensors = new List<LaneSensor>();
 
         private List<GameObject> vehiclesQueue;
         private List<GameObject> vehiclesInIntersection;
         private TrafficSystem trafficSystem;
+        private float group1WaitingTime;
+        private float group2WaitingTime;
+        private int lastGreenGroup = 2;
+        private Coroutine trafficLightRoutine;
         
         [HideInInspector] public int currentRedLightsGroup = 1;
 
-        void Start(){
+        void Start()
+        {
             vehiclesQueue = new List<GameObject>();
             vehiclesInIntersection = new List<GameObject>();
-            if(intersectionType == IntersectionType.TRAFFIC_LIGHT)
-                InvokeRepeating("SwitchLights", lightsDuration, lightsDuration);
+
+            if (intersectionType == IntersectionType.TRAFFIC_LIGHT)
+            {
+                group1WaitingTime = 0f;
+                group2WaitingTime = 0f;
+                lastGreenGroup = currentRedLightsGroup == 1 ? 2 : 1;
+
+                Debug.Log($"[Intersection {id}] Adaptive Traffic System Initialized.");
+                Debug.Log($"[Intersection {id}] Starting Red Group: {currentRedLightsGroup}");
+
+                trafficLightRoutine = StartCoroutine(AdaptiveLightsLoop());
+            }
         }
 
-        void SwitchLights(){
+        void Update(){
+            if(intersectionType != IntersectionType.TRAFFIC_LIGHT)
+                return;
+
+            if(currentRedLightsGroup == 1)
+                group1WaitingTime += Time.deltaTime;
+            else
+                group2WaitingTime += Time.deltaTime;
+        }
+
+        void SwitchLights()
+        {
 
             if(currentRedLightsGroup == 1) currentRedLightsGroup = 2;
             else if(currentRedLightsGroup == 2) currentRedLightsGroup = 1;            
             
             //Wait few seconds after light transition before making the other car move (= orange light)
             Invoke("MoveVehiclesQueue", orangeLightDuration);
+        }
+
+        IEnumerator AdaptiveLightsLoop()
+        {
+            while (true)
+            {
+
+                int nextGreenGroup = SelectNextGreenGroup();
+
+                Debug.Log($"[Intersection {id}] Selected Green Group: {nextGreenGroup}");
+
+                SetGreenGroup(nextGreenGroup);
+
+                float vehicleCount = nextGreenGroup == 1
+                    ? GetGroupVehicleCount(group1Sensors)
+                    : GetGroupVehicleCount(group2Sensors);
+
+                float greenTime = Mathf.Clamp(
+                    vehicleCount * timePerVehicle,
+                    minGreenTime,
+                    maxGreenTime
+                );
+
+                if (vehicleCount <= 0f)
+                    greenTime = minGreenTime;
+
+                Debug.Log($"[Intersection {id}] VehicleCount: {vehicleCount}");
+                Debug.Log($"[Intersection {id}] Calculated Green Time: {greenTime} seconds");
+
+                lastGreenGroup = nextGreenGroup;
+
+                yield return new WaitForSeconds(orangeLightDuration);
+
+                Debug.Log($"[Intersection {id}] Orange phase complete. Releasing vehicles.");
+
+                MoveVehiclesQueue();
+
+                float remaining = Mathf.Max(0f, greenTime - orangeLightDuration);
+                yield return new WaitForSeconds(remaining);
+
+                Debug.Log($"[Intersection {id}] Green phase completed for Group {nextGreenGroup}");
+            }
         }
 
         void OnTriggerEnter(Collider _other) {
@@ -160,7 +234,66 @@ namespace TrafficSimulation{
             }
 
             return false;
-        } 
+        }
+
+        int SelectNextGreenGroup()
+        {
+            int group1Count = GetGroupVehicleCount(group1Sensors);
+            int group2Count = GetGroupVehicleCount(group2Sensors);
+
+            Debug.Log($"[Intersection {id}] ---- Decision Evaluation ----");
+            Debug.Log($"Group1Count: {group1Count}, WaitingTime: {group1WaitingTime}");
+            Debug.Log($"Group2Count: {group2Count}, WaitingTime: {group2WaitingTime}");
+
+            if (group1Count == 0 && group2Count == 0)
+            {
+                Debug.Log("[Decision] Both groups empty → Round Robin applied.");
+                return lastGreenGroup == 1 ? 2 : 1;
+            }
+
+            if (group1Count != group2Count)
+            {
+                int selected = group1Count < group2Count ? 1 : 2;
+                Debug.Log($"[Decision] Least Density First → Group {selected}");
+                return selected;
+            }
+
+            if (!Mathf.Approximately(group1WaitingTime, group2WaitingTime))
+            {
+                int selected = group1WaitingTime > group2WaitingTime ? 1 : 2;
+                Debug.Log($"[Decision] Waiting Time Priority → Group {selected}");
+                return selected;
+            }
+
+            Debug.Log("[Decision] Full Tie → Round Robin applied.");
+            return lastGreenGroup == 1 ? 2 : 1;
+        }
+
+        void SetGreenGroup(int _greenGroup)
+        {
+            currentRedLightsGroup = _greenGroup == 1 ? 2 : 1;
+
+            Debug.Log($"[Intersection {id}] GREEN → Group {_greenGroup}");
+            Debug.Log($"[Intersection {id}] RED → Group {currentRedLightsGroup}");
+
+            if (_greenGroup == 1)
+                group1WaitingTime = 0f;
+            else
+                group2WaitingTime = 0f;
+        }
+
+        int GetGroupVehicleCount(List<LaneSensor> _sensors){
+            int count = 0;
+            if(_sensors == null)
+                return count;
+
+            foreach(LaneSensor sensor in _sensors){
+                if(sensor == null)
+                    continue;
+                count += sensor.VehicleCount;
+            }
+            return count;
+        }
 
 
         private List<GameObject> memVehiclesQueue = new List<GameObject>();
