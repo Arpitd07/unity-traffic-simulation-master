@@ -12,7 +12,7 @@ public class Deactivate : MonoBehaviour
 
     void Start(){
         vehicles = GameObject.FindGameObjectsWithTag("AutonomousVehicle");
-        ts = GameObject.FindObjectOfType<TrafficSystem>();
+        ts = Object.FindFirstObjectByType<TrafficSystem>();
     }
 
     void Update()

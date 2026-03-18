@@ -33,8 +33,12 @@ namespace TrafficSimulation {
             intersection.orangeLightDuration = EditorGUILayout.FloatField("Orange Light Duration (in s.)", intersection.orangeLightDuration);
             SerializedProperty sLightsNbr1 = serializedObject.FindProperty("lightsNbr1");
             SerializedProperty sLightsNbr2 = serializedObject.FindProperty("lightsNbr2");
+            SerializedProperty laneSensorGroup1 = serializedObject.FindProperty("group1Sensors");
+            SerializedProperty laneSensorGroup2 = serializedObject.FindProperty("group2Sensors");
             EditorGUILayout.PropertyField(sLightsNbr1, new GUIContent("Lights #1 (first to be red)"), true);
             EditorGUILayout.PropertyField(sLightsNbr2, new GUIContent("Lights #2"), true);
+            EditorGUILayout.PropertyField(laneSensorGroup1, new GUIContent("LaneSensorGroup1"), true);
+            EditorGUILayout.PropertyField(laneSensorGroup2, new GUIContent("LaneSensorGroup2"), true);
             serializedObject.ApplyModifiedProperties();
             
             EditorGUI.EndDisabledGroup();

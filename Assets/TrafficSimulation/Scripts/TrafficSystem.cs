@@ -32,13 +32,13 @@ namespace TrafficSimulation {
         }
 
         public void SaveTrafficSystem(){
-            Intersection[] its  = GameObject.FindObjectsOfType<Intersection>();
+            Intersection[] its  = Object.FindObjectsByType<Intersection>(FindObjectsSortMode.None);
             foreach(Intersection it in its)
                 it.SaveIntersectionStatus();
         }
 
         public void ResumeTrafficSystem(){
-            Intersection[] its  = GameObject.FindObjectsOfType<Intersection>();
+            Intersection[] its  = Object.FindObjectsByType<Intersection>(FindObjectsSortMode.None);
             foreach(Intersection it in its)
                 it.ResumeIntersectionStatus();
         }
